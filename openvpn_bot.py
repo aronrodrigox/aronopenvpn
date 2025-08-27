@@ -203,13 +203,32 @@ async def active(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         with open(status_path) as f:
             lines = f.readlines()
-        for line in lines:
+        found_clients = False
+        for idx, line in enumerate(lines):
+            # Новый формат: CLIENT_LIST,cn,ip,...
             if line.startswith("CLIENT_LIST"):
                 parts = line.strip().split(",")
                 cn = parts[1]
                 ip = parts[2].split(":")[0]
                 since = parts[7] if len(parts) > 7 else "?"
                 users.append(f"• <b>{cn}</b> — {ip} — с {since}")
+                found_clients = True
+            # Старый формат: ищем после заголовка Common Name,Real Address,...
+        if not found_clients:
+            # Найти индекс строки с заголовком
+            for idx, line in enumerate(lines):
+                if line.strip().startswith("Common Name,Real Address"):
+                    # Все строки после заголовка до пустой строки или другого раздела
+                    for data_line in lines[idx+1:]:
+                        data_line = data_line.strip()
+                        if not data_line or "," not in data_line or data_line.startswith("ROUTING TABLE"):
+                            break
+                        parts = data_line.split(",")
+                        if len(parts) >= 5:
+                            cn = parts[0]
+                            ip = parts[1].split(":")[0]
+                            since = parts[4]
+                            users.append(f"• <b>{cn}</b> — {ip} — с {since}")
         if users:
             msg = "🟢 <b>Активные пользователи:</b>\n" + "\n".join(users)
         else:
