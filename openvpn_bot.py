@@ -5,6 +5,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from config import TOKEN, EASYRSA_DIR, OUTPUT_DIR, TA_KEY_PATH, SERVER_IP, ADMIN_ID
 from telegram.constants import ParseMode
 import json
+import shutil
 
 OVPN_TEMPLATE = """
 client
@@ -283,6 +284,21 @@ async def active(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {e}")
 
+@admin_only
+async def backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import tempfile
+    try:
+        # Создать временный архив
+        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp:
+            archive_path = tmp.name
+        shutil.make_archive(archive_path[:-4], 'zip', OUTPUT_DIR)
+        # Отправить архив
+        with open(archive_path, 'rb') as f:
+            await update.message.reply_document(f, filename='ovpn-clients-backup.zip')
+        os.remove(archive_path)
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка при создании бэкапа: {e}")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands = (
         "👋 <b>Добро пожаловать в OpenVPN Бот!</b>\n\n"
@@ -307,5 +323,6 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("active", active))
+    app.add_handler(CommandHandler("backup", backup))
     print("Бот запущен!")
     app.run_polling()
