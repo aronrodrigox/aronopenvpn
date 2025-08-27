@@ -156,10 +156,10 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = (
         "<b>🛠 Доступные команды:</b>\n"
-        "➕ /new <имя_клиента> — создать новый .ovpn-файл\n"
+        "➕ /new [имя_клиента] — создать новый .ovpn-файл\n"
         "📄 /list — список клиентов\n"
-        "📥 /get <имя_клиента> — получить .ovpn-файл\n"
-        "🗑 /delete <имя_клиента> — удалить клиента\n"
+        "📥 /get [имя_клиента] — получить .ovpn-файл\n"
+        "🗑 /delete [имя_клиента] — удалить клиента\n"
         "ℹ️ /info — статус сервера\n"
         "🆘 /help — справка\n"
     )
@@ -220,10 +220,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands = (
         "👋 <b>Добро пожаловать в OpenVPN Бот!</b>\n\n"
         "🛠 <b>Доступные команды:</b>\n"
-        "➕ /new <имя_клиента> — создать новый .ovpn-файл\n"
+        "➕ /new [имя_клиента] — создать новый .ovpn-файл\n"
         "📄 /list — список клиентов\n"
-        "📥 /get <имя_клиента> — получить .ovpn-файл\n"
-        "🗑 /delete <имя_клиента> — удалить клиента\n"
+        "📥 /get [имя_клиента] — получить .ovpn-файл\n"
+        "🗑 /delete [имя_клиента] — удалить клиента\n"
         "ℹ️ /info — статус сервера\n"
         "🆘 /help — справка\n"
     )
