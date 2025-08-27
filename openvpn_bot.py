@@ -177,14 +177,30 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         with open(status_path) as f:
             lines = f.readlines()
+        found_clients = False
         for line in lines:
+            # Новый формат: CLIENT_LIST,CommonName,RealAddress,BytesReceived,BytesSent,ConnectedSince,...
             if line.startswith("CLIENT_LIST"):
                 parts = line.strip().split(",")
-                # parts: CLIENT_LIST,CommonName,RealAddress,BytesReceived,BytesSent,ConnectedSince,...
                 cn = parts[1]
                 rx = int(parts[3])
                 tx = int(parts[4])
                 stats.append(f"• <b>{cn}</b> — Rx: {rx/1024/1024:.2f} MB, Tx: {tx/1024/1024:.2f} MB")
+                found_clients = True
+        if not found_clients:
+            # Старый формат: ищем после заголовка Common Name,Real Address,...
+            for idx, line in enumerate(lines):
+                if line.strip().startswith("Common Name,Real Address"):
+                    for data_line in lines[idx+1:]:
+                        data_line = data_line.strip()
+                        if not data_line or "," not in data_line or data_line.startswith("ROUTING TABLE"):
+                            break
+                        parts = data_line.split(",")
+                        if len(parts) >= 5:
+                            cn = parts[0]
+                            rx = int(parts[2])
+                            tx = int(parts[3])
+                            stats.append(f"• <b>{cn}</b> — Rx: {rx/1024/1024:.2f} MB, Tx: {tx/1024/1024:.2f} MB")
         if stats:
             msg = "👤 <b>Статистика трафика:</b>\n" + "\n".join(stats)
         else:
