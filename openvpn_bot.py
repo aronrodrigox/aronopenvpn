@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from config import TOKEN, EASYRSA_DIR, OUTPUT_DIR, TA_KEY_PATH, SERVER_IP, ADMIN_ID
 from telegram.constants import ParseMode
+import json
 
 OVPN_TEMPLATE = """
 client
@@ -170,25 +171,26 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @admin_only
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_path = "/etc/openvpn/openvpn-status.log"
+    traffic_file = os.path.join(os.path.dirname(__file__), "traffic.json")
     if not os.path.exists(status_path):
         await update.message.reply_text("Файл openvpn-status.log не найден.")
         return
     stats = []
+    session_traffic = {}
     try:
         with open(status_path) as f:
             lines = f.readlines()
         found_clients = False
+        # 1. Считать текущий трафик сессии
         for line in lines:
-            # Новый формат: CLIENT_LIST,CommonName,RealAddress,BytesReceived,BytesSent,ConnectedSince,...
             if line.startswith("CLIENT_LIST"):
                 parts = line.strip().split(",")
                 cn = parts[1]
                 rx = int(parts[3])
                 tx = int(parts[4])
-                stats.append(f"• <b>{cn}</b> — Rx: {rx/1024/1024:.2f} MB, Tx: {tx/1024/1024:.2f} MB")
+                session_traffic[cn] = {'rx': rx, 'tx': tx}
                 found_clients = True
         if not found_clients:
-            # Старый формат: ищем после заголовка Common Name,Real Address,...
             for idx, line in enumerate(lines):
                 if line.strip().startswith("Common Name,Real Address"):
                     for data_line in lines[idx+1:]:
@@ -200,7 +202,35 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             cn = parts[0]
                             rx = int(parts[2])
                             tx = int(parts[3])
-                            stats.append(f"• <b>{cn}</b> — Rx: {rx/1024/1024:.2f} MB, Tx: {tx/1024/1024:.2f} MB")
+                            session_traffic[cn] = {'rx': rx, 'tx': tx}
+        # 2. Загрузить накопленный трафик
+        if os.path.exists(traffic_file):
+            with open(traffic_file, "r") as f:
+                total_traffic = json.load(f)
+        else:
+            total_traffic = {}
+        # 3. Обновить накопленный трафик
+        for cn, data in session_traffic.items():
+            prev = total_traffic.get(cn, {'rx': 0, 'tx': 0})
+            # Если rx/tx уменьшились (переподключение) — не добавляем разницу
+            rx_add = data['rx'] if data['rx'] >= prev.get('last_rx', 0) else 0
+            tx_add = data['tx'] if data['tx'] >= prev.get('last_tx', 0) else 0
+            total_traffic[cn] = {
+                'rx': prev['rx'] + (data['rx'] - prev.get('last_rx', 0,)),
+                'tx': prev['tx'] + (data['tx'] - prev.get('last_tx', 0,)),
+                'last_rx': data['rx'],
+                'last_tx': data['tx']
+            }
+        # 4. Сохранить накопленный трафик
+        with open(traffic_file, "w") as f:
+            json.dump(total_traffic, f)
+        # 5. Формировать вывод
+        for cn, data in session_traffic.items():
+            total = total_traffic.get(cn, {'rx': 0, 'tx': 0})
+            stats.append(
+                f"• <b>{cn}</b> — Rx: {data['rx']/1024/1024:.2f} MB, Tx: {data['tx']/1024/1024:.2f} MB | "
+                f"Всего: Rx: {total['rx']/1024/1024:.2f} MB, Tx: {total['tx']/1024/1024:.2f} MB"
+            )
         if stats:
             msg = "👤 <b>Статистика трафика:</b>\n" + "\n".join(stats)
         else:
