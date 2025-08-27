@@ -54,7 +54,7 @@ async def newclient(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Генерация ключей через easy-rsa
     try:
-        subprocess.run(f"cd {EASYRSA_DIR} && EASYRSA_BATCH=1 ./easyrsa gen-req {clientname} nopass", shell=True, check=True)
+        subprocess.run(f"cd {EASYRSA_DIR} && EASYRSA_BATCH=1 EASYRSA_REQ_CN={clientname} ./easyrsa gen-req {clientname} nopass", shell=True, check=True)
         subprocess.run(f"cd {EASYRSA_DIR} && echo yes | EASYRSA_BATCH=1 ./easyrsa sign-req client {clientname}", shell=True, check=True)
     except subprocess.CalledProcessError:
         await update.message.reply_text("Ошибка при генерации ключей!")
